@@ -1,0 +1,48 @@
+@font-face {
+	font-family: JetBrainsMono;
+	src: url(../third-party/font/JetBrainsMono.ttf);
+}
+
+.cursor-default {
+	cursor: default;
+}
+
+.cursor-pointer {
+	cursor: pointer;
+}
+
+.font-mono {
+	font-family: JetBrainsMono;
+}
+
+.font-sm {
+	font-size: 0.8rem;
+}
+
+.font-md {
+	font-size: 1rem;
+}
+
+.font-lg {
+	font-size: 1.2rem;
+}
+
+.bg-lighter-dark {
+	background-color: rgb(63, 71, 79) !important;
+}
+
+.d-table-cell-hover td:hover {
+	filter: brightness(85%);
+}
+
+.d-sm-fixed-table-cell {
+	width: 0.8rem;
+}
+
+.d-md-fixed-table-cell {
+	width: 1rem;
+}
+
+.d-lg-fixed-table-cell {
+	width: 1.2rem;
+}
