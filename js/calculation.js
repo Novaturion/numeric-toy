@@ -124,7 +124,7 @@ function updateFloat(id, bits, float, uint) {
 
 	document.getElementById('sign-power-' + id).innerText = signBit;
 	document.getElementById('exponent-' + id).innerText = exponent;
-	document.getElementById('fraction-' + id).innerText = fraction.toFixed(5);
+	document.getElementById('fraction-' + id).innerText = fraction;
 
 	if (exponentBits.every((bit) => { return bit === '1' })) {
 		float = fractionBits.length > 0 ? NaN : (signBit === '0' ? Infinity : -Infinity);
