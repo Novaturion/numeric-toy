@@ -1,45 +1,47 @@
 
-function toggleBit(value) {
-	return parseInt(value) ^ 1;
-}
-
-function clamp(value, min, max) {
-	console.log(value, min, max);
-	if (typeof (value) === 'bigint') {
-		return value > max ? max : value < min ? min : value;
-	}
-
-	return Math.min(Math.max(value, min), max);
-}
-
 function capitalize(value) {
 	return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
-function filterInput(element, alphabet) {
-	element.value = element.value.toLowerCase()
+function resetBits(id) {
+	const bits = document.getElementById('bit-values-' + id).children;
+	for (let i = 0; i < bits.length; i++) {
+		bits[i].innerText = '0';
+	}
+}
+
+function resetInputs(id) {
+	document.getElementById('input-hex-' + id).value = '';
+
+	if (id.includes('float')) {
+		document.getElementById('input-dec-' + id).value = '';
+	}
+	else {
+		document.getElementById('input-dec-signed-' + id).value = '';
+		document.getElementById('input-dec-unsigned-' + id).value = '';
+	}
+}
+
+function clearInput(value) {
+	return value.toLowerCase()
+		.trim()
+		.replace('0x', '')
 		.replace(/[-]+/g, '-')
 		.replace(/[\.]+/g, '.');
-
-	if (!element.value.split('').every((char) => { return alphabet.includes(char); })) {
-		element.value = element.value.slice(0, -1);
-	}
 }
 
-function onEnterKey(event, element) {
-	if (event.keyCode === 13) {
-		event.preventDefault();
-		element.blur();
-	}
-}
+function validateInput(value, id) {
+	let regexp = '';
 
-async function copyToClipboard(element) {
-	try {
-		await navigator.clipboard.writeText(
-			(element.id.includes('hex') ? '0x' : '') + document.getElementById(element.id.replace('copy', 'input')).value
-		);
-	} catch (error) {
-		console.error('Failed to copy text: ', error);
+	if (id.includes('hex')) {
+		regexp = /^\b[a-f\d]+\b$/;
 	}
-	element.blur();
+	else if (id.includes('float')) {
+		regexp = /^[+-]*\b[aefinty\d]+[.]{0,1}[\d]*(e[-+]{1}[\d]+){0,1}\b\.*f{0,1}$/;
+	}
+	else if (id.includes('int')) {
+		regexp = /^[+-]*\b[\d]+\b$/;
+	}
+
+	return regexp.test(value);
 }

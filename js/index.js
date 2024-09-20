@@ -45,16 +45,16 @@ function getBitIndeces(id, size) {
 }
 
 function getFloatBits(id, exponentSize, mantissaSize) {
+	const size = exponentSize + mantissaSize;
 	let row = '<tr id="bit-values-' + id + '" class="d-table-row d-table-cell-hover cursor-pointer">\n' +
-		'<td class="d-table-cell bg-primary bit-sign" onclick="update(this, \'' + id + '\')">0</td>\n';
+		'<td id="bit-' + size + '-' + id + '" class="d-table-cell bg-primary bit-sign" onclick="onBitButtonClick(this)">0</td>\n';
 
-	for (let i = 0; i < exponentSize; i++) {
-		row += '<td class="d-table-cell bg-success" data-index="' + i + '" onclick="update(this, \'' + id + '\')">0</td>\n';
+	for (let i = size - 1; i >= size - exponentSize; --i) {
+		row += '<td id="bit-' + i + '-' + id + '" class="d-table-cell bg-danger" onclick="onBitButtonClick(this)">0</td>\n';
 	}
-
-	for (let i = 0; i < mantissaSize; i++) {
-
-		row += '<td class="d-table-cell bg-danger" data-index="' + i + '" onclick="update(this, \'' + id + '\')">0</td>\n';
+	
+	for (let i = size - 1 - exponentSize; i >= 0; --i) {
+		row += '<td id="bit-' + i + '-' + id + '" class="d-table-cell bg-success" onclick="onBitButtonClick(this)">0</td>\n';
 	}
 
 	return row + '</tr>\n';
@@ -62,10 +62,10 @@ function getFloatBits(id, exponentSize, mantissaSize) {
 
 function getIntBits(id, size) {
 	let row = '<tr id="bit-values-' + id + '" class="d-table-row d-table-cell-hover cursor-pointer">\n' +
-		'<td class="d-table-cell bg-primary bit-sign" onclick="update(this, \'' + id + '\')">0</td>\n';
+		'<td id="bit-' + (size - 1) + '-' + id + '" class="d-table-cell bg-primary bit-sign" onclick="onBitButtonClick(this)">0</td>\n';
 
-	for (let i = 0; i < size - 1; i++) {
-		row += '<td class="d-table-cell bg-lighter-dark" data-index="' + i + '" onclick="update(this, \'' + id + '\')">0</td>\n';
+	for (let i = size - 2; i >= 0; --i) {
+		row += '<td id="bit-' + i + '-' + id + '" class="d-table-cell bg-lighter-dark" onclick="onBitButtonClick(this)">0</td>\n';
 	}
 
 	return row + '</tr>\n';
@@ -75,9 +75,8 @@ function getHexInput(id) {
 	return '<div class="col input-group mb-3">\n' +
 		'<span class="input-group-text border-0 bg-dark text-light" id="hex-input-prefix-' + id + '">0x</span>\n' +
 		'<input type="text" id="input-hex-' + id + '" class="form-control border-0 bg-dark text-light" placeholder="ffeedd"\n' +
-		'aria-label="Hex value" aria-describedby="hex-input-prefix-' + id + '" onblur="update(this, \'' + id + '\')" ' +
-		'oninput="filterInput(this, \'0123456789abcdef\')" onkeydown="onEnterKey(event, this)">\n' +
-		'<button id="copy-hex-' + id + '" class="btn btn-outline-secondary" onclick="copyToClipboard(this)">\n' +
+		'aria-label="Hex value" aria-describedby="hex-input-prefix-' + id + '" oninput="onInput(this)"' + ' onkeydown="onEnterKey(event, this)"' + ' onblur="onBlur(this)">\n' +
+		'<button id="copy-hex-' + id + '" class="btn btn-outline-secondary" onclick="onCopyButtonClick(this)">\n' +
 		'<svg class="text-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"\n' +
 		'class="bi bi-clipboard" viewBox="0 0 16 16">\n' +
 		'<path\n' +
@@ -100,9 +99,8 @@ function getDecFloatInput(id) {
 		'</span>\n' +
 		'</span>\n' +
 		'<input type="text" id="input-dec-' + id + '" class="form-control border-0 bg-dark text-light" placeholder="3.14"\n' +
-		'aria-label="Decimal value" aria-describedby="dec-input-prefix-' + id + '" onblur="update(this, \'' + id + '\')" ' +
-		'oninput="filterInput(this, \'.-+aefinty0123456789\')" onkeydown="onEnterKey(event, this)">\n' +
-		'<button id="copy-dec-' + id + '" class="btn btn-outline-secondary" onclick="copyToClipboard(this)">\n' +
+		'aria-label="Decimal value" aria-describedby="dec-input-prefix-' + id + '" oninput="onInput(this)"' + ' onkeydown="onEnterKey(event, this)"' + ' onblur="onBlur(this)">\n' +
+		'<button id="copy-dec-' + id + '" class="btn btn-outline-secondary" onclick="onCopyButtonClick(this)">\n' +
 		'<svg class="text-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"\n' +
 		'class="bi bi-clipboard" viewBox="0 0 16 16">\n' +
 		'<path\n' +
@@ -122,9 +120,8 @@ function getDecIntInput(id, isSigned) {
 		sign +
 		'</span>\n' +
 		'<input type="text" id="input-dec-' + signId + '" class="form-control border-0 bg-dark text-light" placeholder="1024"\n' +
-		'aria-label="Decimal value" aria-describedby="dec-input-prefix-' + id + '" onblur="update(this, \'' + id + '\')" ' +
-		'oninput="filterInput(this, \'' + (isSigned ? '-' : '') + '0123456789\')" onkeydown="onEnterKey(event, this)">\n' +
-		'<button id="copy-dec-' + signId + '" class="btn btn-outline-secondary" onclick="copyToClipboard(this)">\n' +
+		'aria-label="Decimal value" aria-describedby="dec-input-prefix-' + id + '" oninput="onInput(this)"' + ' onkeydown="onEnterKey(event, this)"' + ' onblur="onBlur(this)">\n' +
+		'<button id="copy-dec-' + signId + '" class="btn btn-outline-secondary" onclick="onCopyButtonClick(this)">\n' +
 		'<svg class="text-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"\n' +
 		'class="bi bi-clipboard" viewBox="0 0 16 16">\n' +
 		'<path\n' +
