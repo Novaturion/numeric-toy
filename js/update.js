@@ -1,188 +1,99 @@
-
 function update(element) {
-	const type = element.id.split('-').pop();
-	const size = /(\d+)$/.exec(type)[0] / 8;
+	const type = getType(element.id);
+	const view = new DataView(new ArrayBuffer(FORMATS[type].bytes));
 
-	const isBigInt = size > 4;
-
-	const byteBuffer = new DataView(new Uint8Array(size).buffer);
-
-	let makeInt = isBigInt ? BigInt : parseInt;
-	let setUint = (value) => { };
-	let setFloat = (value) => { };
-	switch (size) {
-		case 1:
-			setUint = (value) => { return byteBuffer.setUint8(0, value); }
-			break;
-		case 2:
-			setFloat = (value) => { float16.setFloat16(byteBuffer, 0, value); };
-			setUint = (value) => { byteBuffer.setUint16(0, value); }
-			break;
-		case 4:
-			setFloat = (value) => { byteBuffer.setFloat32(0, value); }
-			setUint = (value) => { byteBuffer.setUint32(0, value); }
-			break;
-		case 8:
-			setFloat = (value) => { byteBuffer.setFloat64(0, value); }
-			setUint = (value) => { byteBuffer.setBigUint64(0, value); }
-			break;
-
-		default:
-			break;
-	}
-
-	if (element.id.includes('bit')) {
-		element.innerText = parseInt(element.innerText) ^ 1;
-		const bitString = Array.from(element.parentElement.children).map(
-			(bit) => { return bit.innerText; }
-		).join('');
-
-		setUint(
-			isBigInt
-				? makeInt('0b' + bitString)
-				: makeInt(bitString, 2)
-		);
+	if (element.classList.contains('bit')) {
+		element.innerText = element.innerText === '1' ? '0' : '1';
+		writeUint(view, readBits(type));
 	}
 	else {
-		if (element.id.includes('hex')) {
-			let value = '0x' + element.value.slice(0, size * 2);
-			setUint(makeInt(value));
-		}
-		else if (element.id.includes('float')) {
-			setFloat(parseFloat(element.value));
-		}
-		else {
-			setUint(makeInt(element.value));
-		}
-
-		updateBits(type, byteBuffer);
+		const value = parseInput(element.value, element.id);
+		typeof value === 'bigint'
+			? writeUint(view, value)
+			: writeFloat(view, value);
 	}
 
-	element.id.includes('float')
-		? updateFloat(type, byteBuffer)
-		: updateInt(type, byteBuffer);
+	render(type, view);
 }
 
-function updateBits(type, byteBuffer) {
-	const size = byteBuffer.buffer.byteLength;
-	const maxBitIndex = size * 8 - 1;
-	const bits = Array.from(document.getElementById('bit-values-' + type).children);
+// Re-renders a section from its current bits, e.g. to restore a cleared input.
+function refresh(type) {
+	const view = new DataView(new ArrayBuffer(FORMATS[type].bytes));
+	writeUint(view, readBits(type));
+	render(type, view);
+}
 
-	let makeInt = size > 4 ? BigInt : parseInt;
-	let uintValue = 0;
-	switch (size) {
-		case 1:
-			uintValue = byteBuffer.getUint8(0);
-			break;
-		case 2:
-			uintValue = byteBuffer.getUint16(0);
-			break;
-		case 4:
-			uintValue = byteBuffer.getUint32(0);
-			break;
-		case 8:
-			uintValue = byteBuffer.getBigUint64(0);
-			break;
-
-		default:
-			break;
+function render(type, view) {
+	// Every input of the section gets overwritten, so stale invalid markers no longer apply.
+	for (const input of document.querySelectorAll(`input[id$="-${type}"]`)) {
+		input.classList.remove('is-invalid');
 	}
 
-	for (let i = maxBitIndex; i >= 0; --i) {
-		bits[maxBitIndex - i].innerText = (uintValue >> makeInt(i)) & makeInt(1);
+	updateBits(type, view);
+	isFloat(type)
+		? updateFloat(type, view)
+		: updateInt(type, view);
+}
+
+function readBits(type) {
+	const bits = document.getElementById('bit-values-' + type).children;
+	return BigInt('0b' + Array.from(bits, (bit) => bit.innerText).join(''));
+}
+
+function updateBits(type, view) {
+	const bits = document.getElementById('bit-values-' + type).children;
+	const binary = readUint(view).toString(2).padStart(bits.length, '0');
+	for (let i = 0; i < bits.length; ++i) {
+		bits[i].innerText = binary[i];
 	}
 }
 
-function updateFloat(type, byteBuffer) {
-	if (!type.includes('float')) {
-		return;
+function updateFloat(type, view) {
+	const format = FORMATS[type];
+	const uintValue = readUint(view);
+	const floatValue = readFloat(view);
+
+	const maxExponent = (1 << format.exponent) - 1;
+	const bias = maxExponent >> 1;
+
+	const signBit = Number(uintValue >> BigInt(format.exponent + format.mantissa));
+	const exponent = Number(uintValue >> BigInt(format.mantissa)) & maxExponent;
+	const mantissa = Number(uintValue & ((1n << BigInt(format.mantissa)) - 1n));
+
+	let exponentText;
+	let fractionText;
+	if (exponent === maxExponent) {
+		exponentText = '∞';
+		fractionText = mantissa ? 'NaN' : '1.0';
 	}
-
-	const floatSizes = {
-		2: { exponent: 5, mantissa: 10 },
-		4: { exponent: 8, mantissa: 23 },
-		8: { exponent: 11, mantissa: 52 }
-	};
-
-	const size = byteBuffer.buffer.byteLength;
-	const mantissaSize = floatSizes[size].mantissa;
-	const exponentSize = floatSizes[size].exponent;
-
-	let makeInt = size > 4 ? BigInt : parseInt;
-	let uintValue = 0;
-	let floatValue = 0;
-	switch (size) {
-		case 2:
-			uintValue = byteBuffer.getUint16(0);
-			floatValue = float16.getFloat16(byteBuffer, 0);
-			break;
-		case 4:
-			uintValue = byteBuffer.getUint32(0);
-			floatValue = byteBuffer.getFloat32(0);
-			break;
-		case 8:
-			uintValue = byteBuffer.getBigUint64(0);
-			floatValue = byteBuffer.getFloat64(0);
-			break;
-
-		default:
-			break;
-	}
-
-	const exponentMask = ((1 << exponentSize) - 1);
-	const mantissaMask = (makeInt(1) << makeInt(mantissaSize)) - makeInt(1);
-
-	const signBit = parseInt(uintValue >> makeInt(mantissaSize + exponentSize));
-	const exponent = parseInt(uintValue >> makeInt(mantissaSize)) & exponentMask;
-	const mantissa = uintValue & mantissaMask;
-
-	let fraction = 1;
-	for (let index = 1; index <= mantissaSize; ++index) {
-		fraction += (parseInt(mantissa >> makeInt(mantissaSize - index)) & 1) * Math.pow(2, -index);
-	}
-
-	if (exponent === exponentMask) {
-		floatValue = mantissa ? NaN : (signBit ? -Infinity : Infinity);
+	else {
+		// Subnormals (and zero) have no implicit leading 1 and use the minimum exponent.
+		const isSubnormal = exponent === 0;
+		const fraction = (isSubnormal ? 0 : 1) + mantissa / 2 ** format.mantissa;
+		exponentText = isSubnormal ? 1 - bias : exponent - bias;
+		fractionText = Number.isInteger(fraction) ? fraction.toFixed(1) : String(fraction);
 	}
 
 	document.getElementById('sign-power-' + type).innerText = signBit;
-	document.getElementById('exponent-' + type).innerText = exponent - (exponentMask >> 1);
-	document.getElementById('fraction-' + type).innerText = fraction;
+	document.getElementById('exponent-' + type).innerText = exponentText;
+	document.getElementById('fraction-' + type).innerText = fractionText;
 
-	document.getElementById('input-hex-' + type).value = uintValue.toString(16).toLowerCase();
-	document.getElementById('input-dec-' + type).value = floatValue;
+	document.getElementById('input-hex-' + type).value = formatHex(uintValue, format.bytes);
+
+	const decimal = document.getElementById('input-dec-' + type);
+	decimal.value = formatFloat(floatValue, format.bytes);
+	decimal.title = 'As double: ' + formatFloat(floatValue, 8);
 }
 
-function updateInt(type, byteBuffer) {
-	if (!type.includes('int')) {
-		return;
-	}
+function updateInt(type, view) {
+	const format = FORMATS[type];
+	const uintValue = readUint(view);
 
-	let intValue = 0;
-	let uintValue = 0;
-	switch (byteBuffer.buffer.byteLength) {
-		case 1:
-			intValue = byteBuffer.getInt8(0);
-			uintValue = byteBuffer.getUint8(0);
-			break;
-		case 2:
-			intValue = byteBuffer.getInt16(0);
-			uintValue = byteBuffer.getUint16(0);
-			break;
-		case 4:
-			intValue = byteBuffer.getInt32(0);
-			uintValue = byteBuffer.getUint32(0);
-			break;
-		case 8:
-			intValue = byteBuffer.getBigInt64(0);
-			uintValue = byteBuffer.getBigUint64(0);
-			break;
-
-		default:
-			break;
-	}
-
-	document.getElementById('input-hex-' + type).value = uintValue.toString(16).toLowerCase();
-	document.getElementById('input-dec-signed-' + type).value = intValue;
+	document.getElementById('input-hex-' + type).value = formatHex(uintValue, format.bytes);
+	document.getElementById('input-dec-signed-' + type).value = BigInt.asIntN(format.bytes * 8, uintValue);
 	document.getElementById('input-dec-unsigned-' + type).value = uintValue;
+}
+
+function formatHex(value, bytes) {
+	return value.toString(16).padStart(bytes * 2, '0');
 }
