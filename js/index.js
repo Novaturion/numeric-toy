@@ -1,134 +1,124 @@
+const COPY_ICON = `<svg class="bi bi-clipboard" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+	<path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" />
+	<path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z" />
+</svg>`;
 
-const main = document.getElementsByTagName("main")[0];
+const main = document.getElementsByTagName('main')[0];
 
-main.innerHTML += getFloatSection("float16", "16-bit float (half)", 5, 10);
-main.innerHTML += getFloatSection("float32", "32-bit float (single)", 8, 23);
-main.innerHTML += getFloatSection("float64", "64-bit float (double)", 11, 52);
+main.innerHTML = Object.keys(FORMATS).map(
+	(type) => isFloat(type) ? getFloatSection(type) : getIntSection(type)
+).join('\n');
 
-main.innerHTML += getIntSection("int8", "8-bit int", 8);
-main.innerHTML += getIntSection("int16", "16-bit int", 16);
-main.innerHTML += getIntSection("int32", "32-bit int", 32);
-main.innerHTML += getIntSection("int64", "64-bit int", 64);
-
-function getIntSection(id, header, size) {
-	return '<h1 class="mb-3">' + header + '</h1>' +
-		'<table id="' + id + '" class="d-table font-mono text-center mb-3">' +
-		getBitIndeces(id, size) + '\n' +
-		getIntBits(id, size) + '\n' +
-		'</table>' +
-		'<div class="row">' +
-		getHexInput(id, capitalize("int")) +
-		getDecIntInput(id, true) +
-		getDecIntInput(id, false) +
-		'</div>';
-}
-
-function getFloatSection(id, header, exponentSize, mantissaSize) {
-	return '<h1 class="mb-3">' + header + '</h1>' +
-		'<table id="' + id + '" class="d-table font-mono text-center mb-3">' +
-		getBitIndeces(id, 1 + exponentSize + mantissaSize) + '\n' +
-		getFloatBits(id, exponentSize, mantissaSize) + '\n' +
-		'</table>' +
-		'<div class="row">' +
-		getHexInput(id) +
-		getDecFloatInput(id) +
-		'</div>';
-}
-
-function getBitIndeces(id, size) {
-	let row = '<tr id="bit-indeces-' + id + '" class="d-table-row">\n';
-	for (let i = size - 1; i > -1; i--) {
-		row += '<td class="d-table-cell d-lg-fixed-table-cell font-sm ' + (Math.trunc((size - 1 - i) / 4) % 2 ? '' : 'bg-secondary') + '">' + i + '</td>\n';
+main.addEventListener('click', onClick);
+main.addEventListener('keydown', onKeyDown);
+main.addEventListener('input', (event) => onInput(event.target));
+main.addEventListener('focusout', (event) => {
+	if (event.target.matches('input')) {
+		onCommit(event.target);
 	}
-	return row + '</tr>\n';
+});
 
+for (const type in FORMATS) {
+	refresh(type);
+}
+
+function getIntSection(id) {
+	const size = FORMATS[id].bytes * 8;
+	return `<h1 class="mb-3">${FORMATS[id].header}</h1>
+		<table id="${id}" class="d-table font-mono text-center mb-3">
+			${getBitIndices(id, size)}
+			${getIntBits(id, size)}
+		</table>
+		<div class="row">
+			${getHexInput(id)}
+			${getDecIntInput(id, true)}
+			${getDecIntInput(id, false)}
+		</div>`;
+}
+
+function getFloatSection(id) {
+	const { exponent, mantissa } = FORMATS[id];
+	return `<h1 class="mb-3">${FORMATS[id].header}</h1>
+		<table id="${id}" class="d-table font-mono text-center mb-3">
+			${getBitIndices(id, 1 + exponent + mantissa)}
+			${getFloatBits(id, exponent, mantissa)}
+		</table>
+		<div class="row">
+			${getHexInput(id)}
+			${getDecFloatInput(id)}
+		</div>`;
+}
+
+function getBitIndices(id, size) {
+	let row = `<tr id="bit-indices-${id}" class="d-table-row">\n`;
+	for (let i = size - 1; i >= 0; --i) {
+		const background = Math.trunc((size - 1 - i) / 4) % 2 ? '' : 'bg-secondary';
+		row += `<td class="d-table-cell d-fixed-table-cell font-sm ${background}">${i}</td>\n`;
+	}
+	return row + '</tr>';
+}
+
+function getBit(id, index, background, label) {
+	return `<td id="bit-${index}-${id}" class="d-table-cell bit ${background}" role="button" tabindex="0" aria-label="${label} bit ${index}">0</td>\n`;
 }
 
 function getFloatBits(id, exponentSize, mantissaSize) {
 	const size = exponentSize + mantissaSize;
-	let row = '<tr id="bit-values-' + id + '" class="d-table-row d-table-cell-hover cursor-pointer">\n' +
-		'<td id="bit-' + size + '-' + id + '" class="d-table-cell bg-primary bit-sign" onclick="onBitButtonClick(this)">0</td>\n';
+	let row = `<tr id="bit-values-${id}" class="d-table-row d-table-cell-hover cursor-pointer">\n` +
+		getBit(id, size, 'bg-primary', 'Sign');
 
-	for (let i = size - 1; i >= size - exponentSize; --i) {
-		row += '<td id="bit-' + i + '-' + id + '" class="d-table-cell bg-danger" onclick="onBitButtonClick(this)">0</td>\n';
-	}
-	
-	for (let i = size - 1 - exponentSize; i >= 0; --i) {
-		row += '<td id="bit-' + i + '-' + id + '" class="d-table-cell bg-success" onclick="onBitButtonClick(this)">0</td>\n';
+	for (let i = size - 1; i >= mantissaSize; --i) {
+		row += getBit(id, i, 'bg-danger', 'Exponent');
 	}
 
-	return row + '</tr>\n';
+	for (let i = mantissaSize - 1; i >= 0; --i) {
+		row += getBit(id, i, 'bg-success', 'Mantissa');
+	}
+
+	return row + '</tr>';
 }
 
 function getIntBits(id, size) {
-	let row = '<tr id="bit-values-' + id + '" class="d-table-row d-table-cell-hover cursor-pointer">\n' +
-		'<td id="bit-' + (size - 1) + '-' + id + '" class="d-table-cell bg-primary bit-sign" onclick="onBitButtonClick(this)">0</td>\n';
+	let row = `<tr id="bit-values-${id}" class="d-table-row d-table-cell-hover cursor-pointer">\n` +
+		getBit(id, size - 1, 'bg-primary', 'Sign');
 
 	for (let i = size - 2; i >= 0; --i) {
-		row += '<td id="bit-' + i + '-' + id + '" class="d-table-cell bg-lighter-dark" onclick="onBitButtonClick(this)">0</td>\n';
+		row += getBit(id, i, 'bg-lighter-dark', 'Value');
 	}
 
-	return row + '</tr>\n';
+	return row + '</tr>';
+}
+
+function getInput(inputId, prefixId, prefix, placeholder, label) {
+	return `<div class="col input-group mb-3">
+		<span class="input-group-text border-0 bg-dark text-light" id="${prefixId}">${prefix}</span>
+		<input type="text" id="input-${inputId}" class="form-control border-0 bg-dark text-light" placeholder="${placeholder}"
+			spellcheck="false" autocomplete="off" aria-label="${label}" aria-describedby="${prefixId}">
+		<button type="button" id="copy-${inputId}" class="btn btn-outline-secondary text-light copy-button" title="Copy" aria-label="Copy ${label.toLowerCase()}">
+			${COPY_ICON}
+		</button>
+	</div>`;
 }
 
 function getHexInput(id) {
-	return '<div class="col input-group mb-3">\n' +
-		'<span class="input-group-text border-0 bg-dark text-light" id="hex-input-prefix-' + id + '">0x</span>\n' +
-		'<input type="text" id="input-hex-' + id + '" class="form-control border-0 bg-dark text-light" placeholder="ffeedd"\n' +
-		'aria-label="Hex value" aria-describedby="hex-input-prefix-' + id + '" oninput="onInput(this)"' + ' onkeydown="onEnterKey(event, this)"' + ' onblur="onBlur(this)">\n' +
-		'<button id="copy-hex-' + id + '" class="btn btn-outline-secondary" onclick="onCopyButtonClick(this)">\n' +
-		'<svg class="text-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"\n' +
-		'class="bi bi-clipboard" viewBox="0 0 16 16">\n' +
-		'<path\n' +
-		'd="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" />\n' +
-		'<path\n' +
-		'd="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z" />\n' +
-		'</svg>\n' +
-		'</button>\n' +
-		'</div>\n';
+	return getInput('hex-' + id, 'hex-input-prefix-' + id, '0x', 'ffeedd', 'Hex value');
 }
 
 function getDecFloatInput(id) {
-	return '<div class="col input-group mb-3">\n' +
-		'<span class="input-group-text border-0 bg-dark text-light" id="dec-input-prefix-' + id + '">\n' +
-		'<span">\n' +
-		'-1<sup id="sign-power-' + id + '">0</sup>\n' +
-		'* 2<sup id="exponent-' + id + '">0</sup>\n' +
-		'* <span id="fraction-' + id + '">1.0</span>\n' +
-		'=\n' +
-		'</span>\n' +
-		'</span>\n' +
-		'<input type="text" id="input-dec-' + id + '" class="form-control border-0 bg-dark text-light" placeholder="3.14"\n' +
-		'aria-label="Decimal value" aria-describedby="dec-input-prefix-' + id + '" oninput="onInput(this)"' + ' onkeydown="onEnterKey(event, this)"' + ' onblur="onBlur(this)">\n' +
-		'<button id="copy-dec-' + id + '" class="btn btn-outline-secondary" onclick="onCopyButtonClick(this)">\n' +
-		'<svg class="text-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"\n' +
-		'class="bi bi-clipboard" viewBox="0 0 16 16">\n' +
-		'<path\n' +
-		'd="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" />\n' +
-		'<path\n' +
-		'd="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z" />\n' +
-		'</svg>\n' +
-		'</button>\n' +
-		'</div>\n';
+	const prefix = `<span>
+		-1<sup id="sign-power-${id}">0</sup>
+		* 2<sup id="exponent-${id}">0</sup>
+		* <span id="fraction-${id}">1.0</span>
+		=
+	</span>`;
+	return getInput('dec-' + id, 'dec-input-prefix-' + id, prefix, '3.14', 'Decimal value');
 }
 
 function getDecIntInput(id, isSigned) {
-	const sign = isSigned ? 'signed' : 'unsigned';
-	const signId = sign + '-' + id;
-	return '<div class="col input-group mb-3">\n' +
-		'<span class="input-group-text border-0 bg-dark text-light" id="dec-input-prefix-' + signId + '">\n' +
-		sign +
-		'</span>\n' +
-		'<input type="text" id="input-dec-' + signId + '" class="form-control border-0 bg-dark text-light" placeholder="1024"\n' +
-		'aria-label="Decimal value" aria-describedby="dec-input-prefix-' + id + '" oninput="onInput(this)"' + ' onkeydown="onEnterKey(event, this)"' + ' onblur="onBlur(this)">\n' +
-		'<button id="copy-dec-' + signId + '" class="btn btn-outline-secondary" onclick="onCopyButtonClick(this)">\n' +
-		'<svg class="text-light" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"\n' +
-		'class="bi bi-clipboard" viewBox="0 0 16 16">\n' +
-		'<path\n' +
-		'd="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" />\n' +
-		'<path\n' +
-		'd="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z" />\n' +
-		'</svg>\n' +
-		'</button>\n' +
-		'</div>\n';
+	const signId = (isSigned ? 'signed' : 'unsigned') + '-' + id;
+	return getInput(
+		'dec-' + signId, 'dec-input-prefix-' + signId,
+		isSigned ? 'signed' : 'unsigned', isSigned ? '-1024' : '1024',
+		(isSigned ? 'Signed' : 'Unsigned') + ' decimal value'
+	);
 }

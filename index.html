@@ -1,10 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+
 <head>
-	<meta charset="utf8">
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Numeric Toy</title>
 	<meta name="description"
 		content="Build intuition for the IEEE floating-point and Two's Complement integer formats.">
 	<meta name="keywords"
-		content="float, int, floating-point, integer, binary, hexadecimal, decimal, convert, ieee, twos, complement,">
+		content="float, int, floating-point, integer, binary, hexadecimal, decimal, convert, ieee, twos, complement">
 	<link rel="stylesheet" href="third-party/css/bootstrap.min.css" />
 	<link rel="stylesheet" href="css/index.css" />
 </head>
@@ -16,7 +20,8 @@
 			<a class="col text-end link-info" href="https://github.com/Novaturion/numeric-toy">GitHub</a>
 		</div>
 		<p class="col">
-			Click on a cell below to toggle bit values, or edit the hex or decimal values directly.
+			Click on a cell below (or focus it and press Enter or Space) to toggle bit values,
+			or edit the hex or decimal values directly and press Enter.
 			Use this to build intuition for the IEEE floating-point and Two's Complement integer formats.
 			<br />
 			See Wikipedia for details:
@@ -40,18 +45,20 @@
 	<main class="container">
 	</main>
 
-	<div id="copy-error-toast" class="toast align-items-center position-fixed top-0 end-0 bg-danger hide" role="alert" aria-live="assertive" aria-atomic="true">
+	<div id="toast" class="toast align-items-center position-fixed top-0 end-0 m-3 hide" role="status" aria-live="polite" aria-atomic="true" data-bs-delay="2500">
 		<div class="d-flex">
-			<div id="copy-error-toast-body" class="toast-body">
+			<div id="toast-body" class="toast-body">
 			</div>
 			<button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
 		</div>
 	</div>
+
+	<script src="third-party/js/float16.js"></script>
+	<script src="third-party/js/bootstrap.bundle.min.js"></script>
+	<script src="js/utility.js"></script>
+	<script src="js/update.js"></script>
+	<script src="js/event-handler.js"></script>
+	<script src="js/index.js"></script>
 </body>
 
-<script src="third-party/js/float16.js"></script>
-<script src="third-party/js/bootstrap.bundle.js"></script>
-<script src="js/utility.js"></script>
-<script src="js/update.js"></script>
-<script src="js/event-handler.js"></script>
-<script src="js/index.js"></script>
+</html>
