@@ -1,4 +1,5 @@
-function update(element) {
+// `exclude` is an input to leave untouched, e.g. the one the user is typing into.
+function update(element, exclude = null) {
 	const type = getType(element.id);
 	const view = new DataView(new ArrayBuffer(FORMATS[type].bytes));
 
@@ -7,13 +8,13 @@ function update(element) {
 		writeUint(view, readBits(type));
 	}
 	else {
-		const value = parseInput(element.value, element.id);
+		const value = parseInput(clearInput(element.value, element.id), element.id);
 		typeof value === 'bigint'
 			? writeUint(view, value)
 			: writeFloat(view, value);
 	}
 
-	render(type, view);
+	render(type, view, exclude);
 }
 
 // Re-renders a section from its current bits, e.g. to restore a cleared input.
@@ -23,7 +24,7 @@ function refresh(type) {
 	render(type, view);
 }
 
-function render(type, view) {
+function render(type, view, exclude = null) {
 	// Every input of the section gets overwritten, so stale invalid markers no longer apply.
 	for (const input of document.querySelectorAll(`input[id$="-${type}"]`)) {
 		input.classList.remove('is-invalid');
@@ -31,8 +32,12 @@ function render(type, view) {
 
 	updateBits(type, view);
 	isFloat(type)
-		? updateFloat(type, view)
-		: updateInt(type, view);
+		? updateFloat(type, view, exclude)
+		: updateInt(type, view, exclude);
+}
+
+function setBit(bit, value) {
+	bit.innerText = value;
 }
 
 function readBits(type) {
@@ -48,7 +53,15 @@ function updateBits(type, view) {
 	}
 }
 
-function updateFloat(type, view) {
+function setInputValue(id, value, exclude) {
+	const input = document.getElementById(id);
+	if (input !== exclude) {
+		input.value = value;
+	}
+	return input;
+}
+
+function updateFloat(type, view, exclude) {
 	const format = FORMATS[type];
 	const uintValue = readUint(view);
 	const floatValue = readFloat(view);
@@ -78,20 +91,18 @@ function updateFloat(type, view) {
 	document.getElementById('exponent-' + type).innerText = exponentText;
 	document.getElementById('fraction-' + type).innerText = fractionText;
 
-	document.getElementById('input-hex-' + type).value = formatHex(uintValue, format.bytes);
-
-	const decimal = document.getElementById('input-dec-' + type);
-	decimal.value = formatFloat(floatValue, format.bytes);
+	setInputValue('input-hex-' + type, formatHex(uintValue, format.bytes), exclude);
+	const decimal = setInputValue('input-dec-' + type, formatFloat(floatValue, format.bytes), exclude);
 	decimal.title = 'As double: ' + formatFloat(floatValue, 8);
 }
 
-function updateInt(type, view) {
+function updateInt(type, view, exclude) {
 	const format = FORMATS[type];
 	const uintValue = readUint(view);
 
-	document.getElementById('input-hex-' + type).value = formatHex(uintValue, format.bytes);
-	document.getElementById('input-dec-signed-' + type).value = BigInt.asIntN(format.bytes * 8, uintValue);
-	document.getElementById('input-dec-unsigned-' + type).value = uintValue;
+	setInputValue('input-hex-' + type, formatHex(uintValue, format.bytes), exclude);
+	setInputValue('input-dec-signed-' + type, BigInt.asIntN(format.bytes * 8, uintValue), exclude);
+	setInputValue('input-dec-unsigned-' + type, uintValue, exclude);
 }
 
 function formatHex(value, bytes) {

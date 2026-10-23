@@ -10,6 +10,10 @@ main.innerHTML = Object.keys(FORMATS).map(
 ).join('\n');
 
 main.addEventListener('click', onClick);
+main.addEventListener('pointerdown', onBitPointerDown);
+document.addEventListener('pointermove', onBitPointerMove);
+document.addEventListener('pointerup', onBitPointerUp);
+document.addEventListener('pointercancel', onBitPointerUp);
 main.addEventListener('keydown', onKeyDown);
 main.addEventListener('input', (event) => onInput(event.target));
 main.addEventListener('focusout', (event) => {
